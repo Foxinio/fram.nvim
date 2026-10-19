@@ -15,6 +15,10 @@
 (attribute (lid) @attribute)
 (op) @operator
 
+["(" ")" "[" "]" "{" "}" "@{"] @punctuation.bracket
+["," "." ":"] @punctuation.delimiter
+["=" "|" "/" "->" "->>" "=>" ">."] @operator
+
 (line_comment) @comment
 (line_doc_comment) @comment.documentation
 (block_comment) @comment
