@@ -1,0 +1,772 @@
+# Fram formatting reference. All examples are checked together with dbl, including tagged test
+# definitions. Preserve string contents and comment delimiters while choosing your style. Check from
+# this directory:
+# ../../repo/_build/default/src/dbl.exe -L ../../repo/lib -color never -test -test-tags '*' formatting-example.fram
+
+
+import List
+import Base/Option
+import Base/Result as Results
+import /Base/String as Strings
+import open Base/Operators
+import open /Base/Int
+
+
+## Comments, documentation, and inline comments.
+module Comments
+  module Comments
+    # This is a single-line comment.
+    {# This is a block comment. #}
+    {# Block comments may span multiple lines. #}
+    let id x = x # A single-line comment may appear at the end of a line.
+
+    let n {# A block comment may span a part of a single line. #} = 42
+    {#aaa
+    Comments cannot be nested,
+    {# but the programmer may choose the comment delimiters. #}
+    aaa#}
+
+    {#!a! Comment names may contain operators. !a!#}
+
+    {#abc
+      This comment is ended by `abc` immediately followed by `#}`,
+      even if the closing sequence is preceded by other characters.
+      zzabc#}
+
+    let {#
+    # This is not a single-line comment,
+    # because comments are not nested.
+    # This comment can be ended #} here =
+      13
+
+    ## This is a documentation comment.
+    let foo x = x
+
+    ## This is another documentation comment.
+    let bar = foo
+
+    {###
+    Documentation comments can contain some code
+    ```
+    {## with another documentation comment (with a different name). ##}
+    let some_code = 42
+    ```
+    ###}
+    let baz = bar
+  end
+end
+
+
+## Integer bases, strings, characters, and escapes.
+module Literals
+  module AdditionalLiterals
+    let large               = 9223372036854775807L
+    let wideBinary          = 0b101010L
+    let wideOctal           = 0o755L
+    let wideHexadecimal     = 0x1234ABCDL
+    let negative            = -42
+    let unit                = ()
+    let emptyList           = []
+    let punctuationInString = "( ) [ ] { } -> ->> => # {# not a comment #}"
+    let multiline =
+      "first line
+  second line with intentional leading spaces
+
+last line"
+  end
+
+  module Numbers
+    let _ = 0
+    let _ = 0x123
+    let _ = 0B10
+    let _ = 42
+    let _ = 0o555
+
+    let foo (x : Int) = x
+
+    let _ = foo 13
+  end
+
+  module Strings
+    let _ = ""
+    let _ = "'"
+    let _ = "\\"
+    let _ = "\""
+    let _ = "\n"
+    let _ = "\x13\X42"
+    let _ = "\0\n\b\t\r\v\a\f"
+
+    let foo (x : String) = x
+
+    let _ = foo "42"
+  end
+
+  module Chars
+    let _ = 'a'
+    let _ = '''
+    let _ = '\n'
+    let _ = '\t'
+    let _ = '\\'
+
+    let foo (x : Char) = x
+
+    let _ = foo '1'
+  end
+end
+
+
+## String interpolation and explicit formatting arguments.
+module Interpolation
+  module StringInterpolation
+    data rec List A = [] | (::) of A, List A
+
+    data UnitFmt = UnitFmt of {?unit : String}
+
+    method toString {?prec : Int, ?fmt : UnitFmt} () =
+      match fmt with | Some (UnitFmt { unit = Some name }) => name | _ => "()" end
+
+    let _ = "unformatted \{ () }"
+    let _ = "formatted   \{ () | UnitFmt { unit = "UNIT" } }"
+  end
+end
+
+
+## Recursive data, mutually recursive data, higher kinds, and abstract data.
+module DataDeclarations
+  module RecursiveData
+    data rec List X = | Nil | Cons of X, List X
+
+    let tl xs = match xs with | Nil => Nil | Cons _ xs => xs end
+
+    let _ = tl (Cons () (Cons () (Cons () Nil)))
+  end
+
+  module MutualDataRec
+    rec
+      data Tree X = Node of X, TreeList X
+      data TreeList X = | Nil | Cons of Tree X, TreeList X
+    end
+  end
+
+  module HigherKinds
+    data Option X = | None | Some of X
+
+    data Pair X Y = Pair of X, Y
+
+    data ST S M X = ST of (S ->[] M (Pair S X))
+
+    let run s0 (ST m) = match m s0 with | None => None | Some (Pair _ x) => Some x end
+  end
+
+  module AbstractData
+    module M
+      abstr data T = C | D
+    end
+
+    let f (x : M.T) = x
+  end
+end
+
+
+## Type aliases, effect arrows, and nested function types.
+module Types
+  module TypeAlias
+    type T = Int
+    let id (x : T) = x
+    let _ = id 42
+
+    data U X = C of X
+    let a = C 42
+    let g (x : U T) = x
+    let _ = g a
+  end
+
+  module EffectfulArrow
+    data Eff E = { op : Int ->[E] Int }
+
+    let foo (f : _ ->> _) = f 42
+
+    let t {~e : Eff _} () = foo (~e.op)
+  end
+
+  module NestedEffArrows
+    let foo (f : Unit ->[] Unit ->[] Unit) = f () ()
+    let foo (f : Unit ->[] ({X} -> X) -> Unit) = ()
+  end
+end
+
+
+## Functions, explicit type arguments, polymorphism, and result annotations.
+module Functions
+  module FunSugar
+    let foo f x = f x x
+    let bar g = foo (fn x y => g y x) ()
+    let _ = bar (fn x y => x)
+  end
+
+  module PolymorphicFields
+    data I = I of ({type X} -> X -> X)
+
+    let foo (I id) = id ()
+
+    let bar = foo (I (fn x => x))
+  end
+
+  module LetAnnot
+    let id1 {X} x : X = x
+    let id2 {X} x : total X = x
+
+    let call {E} (f : _ ->[E] _) :[E] _ = f ()
+
+    let ensureTotal (f : _ -> _) : total _ = f ()
+
+    let _ = ensureTotal id1
+    let _ = ensureTotal id2
+  end
+
+  module ExplicitFunctionInstantiation
+    data Triples X Y Z = Triple of X, Y, Z
+
+    let _ =
+      let f { type X, type Y, foo : X -> Y -> Triples X Y Y, bar : X ->[] X } x y = foo (bar x) y
+      in
+      match f { foo x y = (Triple x y y), bar (x : Unit) = x } () () with | Triple _ _ _ => () end
+  end
+end
+
+
+## Annotated recursion, mutually recursive functions, and pattern matching.
+module Recursion
+  module AnnotatedLetRec
+    data rec List X = [] | (::) of X, List X
+
+    let rec map {A, B, E} (f : A ->[E] B) (xs : List A) :[E] List B =
+      match xs with | [] => [] | x :: xs => f x :: map f xs end
+
+    let rec append {A} (xs : List A) : total List A ->[] List A =
+      fn ys => match xs with | [] => ys | x :: xs => x :: append xs ys end
+  end
+
+  module MutualRecursion
+    data rec Nat = Z | S of Nat
+    data Bool = False | True
+
+    rec
+      let odd n = match n with | Z => False | S n => even n end
+
+      let even n = match n with | Z => True | S n => odd n end
+    end
+
+    let _ = even (S (S (S (S (S Z)))))
+  end
+end
+
+
+## Operator definitions, unary operators, short-circuit operators, and sequences.
+module Operators
+  module Operators
+    let (+) = (extern dbl_addInt : Int -> Int -> Int)
+    let (-) = (extern dbl_subInt : Int -> Int -> Int)
+    let (- .) = (fn x => 0 - x)
+    let x = 5 + 3
+    let y = 5 - 3
+    let z = -5
+  end
+
+  module SpecialBinops
+    let printStrLn = extern dbl_printStrLn : String ->[IO] Unit
+    let printStr   = extern dbl_printStr : String ->[IO] Unit
+
+    data Bool = False | True
+
+    let print b s = let _ = printStr s in b
+
+    let _ =
+      if print True "1Succ" || print True "FAIL" then printStrLn "ess!1" else printStrLn "FAIL"
+    let _ =
+      if print True "2Succ" || print False "FAIL" then printStrLn "ess!2" else printStrLn "FAIL"
+    let _ =
+      if print False "3Succ" || print True "3333" then printStrLn "ess!3" else printStrLn "FAIL"
+    let _ =
+      if print False "4Succ" || print False "4444" then printStrLn "FAIL!" else printStrLn "ess!4"
+
+    let _ =
+      if print True "5Succ" && print True "5555" then printStrLn "ess!5" else printStrLn "FAIL"
+    let _ =
+      if print True "6Succ" && print False "6666" then printStrLn "FAIL!" else printStrLn "ess!6"
+    let _ =
+      if print False "7Succ" && print True "FAIL" then printStrLn "FAIL!" else printStrLn "ess!7"
+    let _ =
+      if print False "8Succ" && print False "FAIL" then printStrLn "FAIL!" else printStrLn "ess!8"
+
+    let _ = printStr "semi"; printStrLn "colon"
+  end
+end
+
+
+## Lists, record data, and generic records.
+module Collections
+  module Lists
+    data rec List X = [] | (::) of X, List X
+
+    let tl xs = match xs with | [] => [] | _ :: xs => xs end
+
+    let swap_if_two xs = match xs with | [ x, y ] => [ y, x ] | _ => xs end
+
+    let dup_hd xs = match xs with | [] => [] | (::) x xs => x :: x :: xs end
+  end
+
+  module SimpleRecord
+    data A = B | C
+
+    data T = { x : A, y : A }
+
+    let swap (v : T) = T { x = v.y, y = v.x }
+  end
+
+  module GenericRecords
+    data Vec T = { x : T, y : T }
+
+    let swap (v : Vec _) = Vec { x = v.y, y = v.x }
+  end
+end
+
+
+## Conditionals, branch expressions, and conditionals without else.
+module Conditionals
+  module IfExpr
+    data Bool = True | False
+
+    let not x = if x then False else True
+  end
+
+  module UnaryIf
+    let printStrLn = extern dbl_printStrLn : String ->[IO] Unit
+    let printStr   = extern dbl_printStr : String ->[IO] Unit
+
+    data Bool = False | True
+
+    let _ =
+      if ( printStr "Succ"; False ) then if True then printStr "FAIL" else printStr "FAIL";
+        printStrLn "ess!"
+  end
+end
+
+
+## Nested alternative patterns, module patterns, open patterns, and empty matches.
+module Patterns
+  module Or_pattern_nested
+    data Option A = None | Some of A
+    data Result E A = Error of E | Ok of A
+
+    let test_nested_option x =
+      match x with | None | Some None => "none or some none" | Some (Some _) => "some some" end
+
+    let test_result_option x =
+      match x with
+      | Ok None | Error None => "none value"
+      | Ok (Some _) | Error (Some _) => "some value"
+      end
+  end
+
+  module Or_pattern_module_same
+    data T = A of { x : Int } | B of { x : Int }
+
+    let f t = match t with | A { module M } | B { module M } => M.x end
+  end
+
+  module PatternOpen
+    data T X = C of { x : X, y : X }
+
+    let f (C { open, y = z }) =
+      let x = C { x, y }
+      let y = C { x = y, y = z }
+      in
+      C { open }
+  end
+
+  module EmptyMatch
+    data Empty =
+
+    let ofEmpty (x : Empty) = match x with end
+
+    data rec T = C of T
+
+    let foo x = C (ofEmpty x)
+  end
+end
+
+
+## Method arguments, method selection, and piped calls.
+module Methods
+  module NamedParamMethod
+    data rec List A = Nil | Cons of A, List A
+
+    let fix {type A, type B, type E} f =
+      data rec Fix = Fix of (Fix -> A ->[E] B)
+      let fi ix x = let Fix fi = ix in f (fi ix) x
+      in
+      fi (Fix fi)
+
+    let fold_left f acc xs =
+      fix (fn fold acc xs => match xs with | Nil => acc | Cons x xs => fold (f acc x) xs end) acc xs
+
+    method toString = (extern dbl_intToString : Int -> String)
+    method add = (extern dbl_strCat : String -> String -> String)
+
+    method toString { A, method toString : A ->[] String } (self : (List A)) =
+      fold_left (fn (acc : String) (x : A) => acc.add x.toString) ""
+
+    let x = Cons 1 (Cons 2 Nil)
+    let _ = x.toString
+  end
+
+  module PipedMethodNamedParam
+    data A = A
+
+    method foo { x = A } A = A
+
+    let _ = A >.foo { x = A }
+  end
+end
+
+
+## Method parameters and source-location implicit parameters.
+module Parameters
+  module ParameterMethod
+    parameter T
+    parameter method foo : T -> T
+
+    let bar (x : T) = x.foo
+
+    parameter U
+    parameter method foo : U -> U
+
+    let baz (x : U) = bar x
+  end
+
+  module SpecialImplicits
+    let f {~__line__ : Int} () = ~__line__
+    let g {~__file__ : String} () = ~__file__
+
+    let _ = f ()
+    let _ = g ()
+  end
+end
+
+
+## Mixed affine/unrestricted operations and affine effect expressions.
+module Effects
+  module MixedAffinity
+    data BT E = { flip : Unit ->[E] Bool, fail : {X} -> Unit ->[aff E] X }
+
+    let hBT = handler BT { effect flip () = resume True; resume False, aff effect fail () = () } end
+  end
+
+  module AffineIdEffect
+    data Id E = { id : {X} -> X ->[aff E] X }
+
+    let hId = handler Id { id = aff effect x => resume x } end
+  end
+end
+
+
+## Nested handlers, handler functions, resumptions, and alternative handler clauses.
+module Handlers
+  module NestedHandlers
+    let printStrLn = extern dbl_printStrLn : String ->[IO] Unit
+    let addInt     = extern dbl_addInt : Int -> Int -> Int
+    method toString = (extern dbl_intToString : Int -> String)
+
+    data Reader E X = { ask : Unit ->[E] X }
+
+    let hReader init = handler Reader { ask = effect () / r => r init } end
+
+    let (res : Int) =
+      handle r1 with hReader 1 in handle r2 with hReader 5 in addInt (r1.ask ()) (r2.ask ())
+
+    let _ = printStrLn res.toString
+  end
+
+  module Handlerfn
+    data rec List X = | [] | (::) of X, List X
+
+    data ST E X = { get : Unit ->[E] X, put : X ->[E] Unit }
+
+    let hST st0 =
+      handler
+      ST { effect get () = fn st => resume st st, effect put st = fn _ => resume () st }
+      return x => fn _ => x
+      finally c => c st0
+      end
+
+    data Writer E X = { tell : X ->[E] Unit }
+
+    let hWriter =
+      handlerfn
+      handle st with hST []
+      in
+      Writer { tell x = st.put (x :: st.get ()) }
+      return () => st.get ()
+      end
+
+    let _ : List Int = handle wr with hWriter in wr.tell 1; wr.tell 2
+  end
+
+  module Or_pattern_handler
+    data T = A | B | C
+
+    let _ = handle x = A return (A | B) => C return C => A finally (A | B | C) => () in x
+  end
+end
+
+
+## Nested public modules, public patterns, qualified paths, and sections.
+module Modules
+  module PublicModulePattern
+    module M
+      data T = C of { x : Int }
+      pub let C { module N } = C { x = 42 }
+    end
+
+    let x = M.N.x
+  end
+
+  module AdtsInModules
+    module M
+      pub module N
+        pub data T = C
+      end
+    end
+
+    let f (C : M.N.T) = M.N.C
+  end
+
+  module SectionShadow
+    parameter ~x : Int
+
+    section
+      parameter ~x : Bool
+
+      let y = ~x : Bool
+    end
+
+    let z = ~x : Int
+  end
+end
+
+
+## Attributes, public definitions, and explicitly typed extern bindings.
+module AttributesAndExterns
+  module Attributes
+    # no attributes
+    let x = 10
+
+    # pub
+    pub let y = 10
+
+    # empty attributes + pub
+    @{}
+    pub let z = 20
+
+    # A tagged definition, also checked when test tags are enabled.
+    @{ test }
+    pub let w = 20 + 22
+
+    @{ test a1 a2, test a3 a4 }
+    let u = 30
+
+    @{ test alpha beta gamma, test delta epsilon }
+    pub let multilineAttributes = 42
+  end
+
+  module Extern
+    let addInt = extern dbl_addInt : Int -> Int -> Int
+
+    let _ = addInt 13 42
+  end
+end
+
+
+## Long lines: deliberately unwrapped so you can choose the break positions.
+# Include a few choices near your preferred width as well as the extreme cases. Splitting a string
+# literal must preserve its contents; an actual newline in a string changes the value. Long comments
+# can demonstrate prose wrapping too.
+module LongLines
+  data ReportConfiguration =
+    { reportTitle : String
+    , reportDescription : String
+    , destinationDirectory : String
+    , includeDetailedStatistics : Bool
+    , maximumNumberOfEntries : Int
+    , minimumNumberOfSuccessfulAttempts : Int
+    }
+
+  let makeReportConfiguration
+      reportTitle
+      reportDescription
+      destinationDirectory
+      includeDetailedStatistics
+      maximumNumberOfEntries
+      minimumNumberOfSuccessfulAttempts =
+    ReportConfiguration
+      { reportTitle
+      , reportDescription
+      , destinationDirectory
+      , includeDetailedStatistics
+      , maximumNumberOfEntries
+      , minimumNumberOfSuccessfulAttempts
+      }
+
+  let reportConfiguration =
+    makeReportConfiguration "A comprehensive summary of the most recent processing session"
+      ("This report includes every completed operation, the configuration used"
+        + " for each operation, and the final outcome of the processing session.")
+      "reports/completed-processing-sessions/current-session" True 1000 3
+
+  let explicitConfiguration =
+    ReportConfiguration
+      { reportTitle = "A comprehensive summary of the most recent processing session"
+      , reportDescription = "Detailed results grouped by operation and execution stage"
+      , destinationDirectory = "reports/completed-processing-sessions/current-session"
+      , includeDetailedStatistics = True
+      , maximumNumberOfEntries = 1000
+      , minimumNumberOfSuccessfulAttempts = 3
+      }
+
+  let configurationTitle
+      (ReportConfiguration
+        { reportTitle
+        , reportDescription
+        , destinationDirectory
+        , includeDetailedStatistics
+        , maximumNumberOfEntries
+        , minimumNumberOfSuccessfulAttempts
+        }) =
+    reportTitle
+
+  let chooseConfigurationDescription (configuration : ReportConfiguration) =
+    if configuration.includeDetailedStatistics
+    then configuration.reportDescription
+    else configuration.reportTitle
+
+  let normalizeDescription (description : String) : String = description
+  let validateDescription (description : String) : String = description
+  let prepareDescription (description : String) : String = description
+  let renderDescription (description : String) : String = description
+
+  let description =
+    renderDescription
+      (prepareDescription
+        (validateDescription (normalizeDescription reportConfiguration.reportDescription)))
+
+  let (|>) value transform = transform value
+
+  let descriptionPipeline =
+    reportConfiguration.reportDescription
+      |> normalizeDescription
+      |> validateDescription
+      |> prepareDescription
+      |> renderDescription
+
+  let transformDescriptions
+      {E}
+      (normalizeDescription : String ->[E] String)
+      (validateDescription : String ->[E] String)
+      (prepareDescription : String ->[E] String)
+      (renderDescription : String ->[E] String)
+      (configuration : ReportConfiguration)
+      :[E] String =
+    renderDescription
+      (prepareDescription
+        (validateDescription (normalizeDescription configuration.reportDescription)))
+
+  let transformWithCallback
+      (transformDescription : (String ->[] String) -> String ->[] String)
+      (description : String)
+      : String =
+    transformDescription
+      (fn originalDescription => normalizeDescription (validateDescription originalDescription))
+      description
+
+  data ProcessingResult =
+    | Completed of ReportConfiguration, String
+    | Rejected of ReportConfiguration, String
+    | Pending of ReportConfiguration
+
+  let describeProcessingResult result =
+    match result with
+    | Completed configuration description =>
+      renderDescription
+        (prepareDescription (validateDescription (normalizeDescription description)))
+    | Rejected configuration reason => reason
+    | Pending configuration => configuration.reportTitle
+    end
+
+  let reportTitles =
+    [ "The first report contains a detailed breakdown of every successfully processed entry"
+    , "The second report describes entries that were rejected during validation"
+    , "The third report lists entries awaiting another processing attempt"
+    , "The final report summarizes the complete session and its configuration"
+    ]
+
+  let configurations =
+    [ makeReportConfiguration "First processing session" "All entries completed successfully"
+      "reports/first-session" True 1000 3
+    , makeReportConfiguration "Second processing session"
+      "Some entries require additional validation" "reports/second-session" False 500 2
+    , makeReportConfiguration "Final processing session"
+      "Only entries with complete metadata are included" "reports/final-session" True 250 1
+    ]
+
+  let configurationPair =
+    (makeReportConfiguration "Primary processing session"
+      "The primary report includes all completed entries" "reports/primary-session" True 1000 3
+      , makeReportConfiguration "Secondary processing session"
+        "The secondary report includes only rejected entries" "reports/secondary-session" False 500
+        2)
+
+  let longLiteral =
+    "This deliberately long string contains enough ordinary text to extend well"
+      + " beyond a typical editor width, so that the formatting example can"
+      + " distinguish wrapping the surrounding expression from changing the"
+      + " actual contents of a string literal."
+
+  let interpolatedDescription =
+    "The selected report is titled \{ reportConfiguration.reportTitle };"
+      + " its description is \{ reportConfiguration.reportDescription };"
+      + " the destination is \{ reportConfiguration.destinationDirectory }."
+
+  let longFunctionArgument =
+    transformWithCallback
+      (fn transformDescription originalDescription =>
+        transformDescription
+          (renderDescription
+            (prepareDescription (validateDescription (normalizeDescription originalDescription)))))
+      ("This description is passed to a callback whose implementation is also"
+        + " long enough to require a deliberate choice of line breaks.")
+
+  let severalLocalDefinitions configuration =
+    let originalDescription   = configurationTitle configuration
+    let normalizedDescription = normalizeDescription originalDescription
+    let validatedDescription  = validateDescription normalizedDescription
+    let preparedDescription   = prepareDescription validatedDescription
+    in
+    renderDescription preparedDescription
+
+  # This is a deliberately long explanatory comment describing how a report configuration moves
+  # through normalization, validation, preparation, and rendering; you can wrap this paragraph to
+  # show the preferred treatment of prose comments near long expressions.
+  {##
+    This documentation comment is also deliberately long, so you can demonstrate whether
+    documentation paragraphs should wrap to the same width as ordinary comments and how their
+    continuation lines should be aligned with the surrounding declaration.
+  ##}
+  let documentedDescription configuration =
+    renderDescription
+      (prepareDescription
+        (validateDescription (normalizeDescription (configurationTitle configuration))))
+end
+
+
+# An end-of-file comment after the last declaration.

@@ -19,10 +19,10 @@
 ["," "." ":"] @punctuation.delimiter
 ["=" "|" "/" "->" "->>" "=>" ">."] @operator
 
-(line_comment) @comment
-(line_doc_comment) @comment.documentation
-(block_comment) @comment
-(block_comment_unfinished) @comment
+(line_comment) @comment @spell
+(line_doc_comment) @comment.documentation @spell
+(block_comment) @comment @spell
+(block_comment_unfinished) @comment @spell
 
 [(num) (num64)] @number
 (chr) @character
